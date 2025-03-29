@@ -2,6 +2,11 @@ import argparse
 import os
 import threading
 
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from types import SimpleNamespace
+import torch
+
+
 from dotenv import load_dotenv
 from huggingface_hub import login
 from scripts.text_inspector_tool import TextInspectorTool
@@ -19,7 +24,7 @@ from scripts.visual_qa import visualizer
 from smolagents import (
     CodeAgent,
     GoogleSearchTool,
-    # HfApiModel,
+    HfApiModel,
     LiteLLMModel,
     ToolCallingAgent,
 )
@@ -82,16 +87,77 @@ BROWSER_CONFIG = {
 
 os.makedirs(f"./{BROWSER_CONFIG['downloads_folder']}", exist_ok=True)
 
+class LocalHFModel:
+    def __init__(self, model_id="mistralai/Mistral-7B-Instruct-v0.2", max_tokens=2048, device=None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16 if "cuda" in self.device else torch.float32).to(self.device)
+        self.max_tokens = max_tokens
+
+    def __call__(self, messages, stop_sequences=None):
+        # Format input prompt from messages
+        if isinstance(messages, list):
+            prompt = self.format_messages(messages)
+        else:
+            prompt = messages
+
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+
+        generation_kwargs = {
+            "max_new_tokens": self.max_tokens,
+            "do_sample": True,
+            "temperature": 0.7,
+        }
+
+        if stop_sequences:
+            generation_kwargs["eos_token_id"] = self.tokenizer.convert_tokens_to_ids(stop_sequences[0])
+
+        outputs = self.model.generate(**inputs, **generation_kwargs)
+        output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        # Return as SimpleNamespace for attribute-style access
+        return SimpleNamespace(role="assistant", content=output_text.strip())
+
+
+    def format_messages(self, messages):
+        """
+        Format a list of {'role': ..., 'content': ...} into a single prompt string.
+        Customize this if your model expects specific formatting (e.g., ChatML or Alpaca-style).
+        """
+        prompt = ""
+        for message in messages:
+            role = message.get("role", "user")
+            content = message["content"]
+            if role == "user":
+                prompt += f"User: {content}\n"
+            elif role == "assistant":
+                prompt += f"Assistant: {content}\n"
+            else:
+                prompt += f"{role}: {content}\n"
+        prompt += "Assistant: "
+        return prompt
+
 
 def create_agent(model_id="o1"):
+    # model_params = {
+    #     "model_id": model_id,
+    #     "custom_role_conversions": custom_role_conversions,
+    #     "max_completion_tokens": 8192,
+    # }
+    # if model_id == "o1":
+    #     model_params["reasoning_effort"] = "high"
+    # model = LiteLLMModel(**model_params)
+
+    # model_params = {
+    #     "model_id": model_id,
+    #     # "token": 
+    # }
+    # model = HfApiModel(**model_params)
+    
     model_params = {
         "model_id": model_id,
-        "custom_role_conversions": custom_role_conversions,
-        "max_completion_tokens": 8192,
     }
-    if model_id == "o1":
-        model_params["reasoning_effort"] = "high"
-    model = LiteLLMModel(**model_params)
+    model = LocalHFModel(**model_params)
 
     text_limit = 100000
     browser = SimpleTextBrowser(**BROWSER_CONFIG)
