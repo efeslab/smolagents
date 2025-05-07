@@ -68,6 +68,7 @@ def parse_args():
         "question", type=str, help="for example: 'How many studio albums did Mercedes Sosa release before 2007?'"
     )
     parser.add_argument("--model-id", type=str, default="o1")
+    parser.add_argument("--port", type=int, default=8080)
     return parser.parse_args()
 
 
@@ -105,8 +106,9 @@ class LocalHFModel:
 
         generation_kwargs = {
             "max_new_tokens": self.max_tokens,
-            "do_sample": True,
-            "temperature": 0.7,
+            # "do_sample": True,
+            # "temperature": 0.0,
+            # "seed": 42,
         }
 
         if stop_sequences:
@@ -138,7 +140,7 @@ class LocalHFModel:
         return prompt
 
 
-def create_agent(model_id="o1"):
+def create_agent(model_id="o1", port=8080):
     # model_params = {
     #     "model_id": model_id,
     #     "custom_role_conversions": custom_role_conversions,
@@ -146,7 +148,15 @@ def create_agent(model_id="o1"):
     # }
     # if model_id == "o1":
     #     model_params["reasoning_effort"] = "high"
-    # model = LiteLLMModel(**model_params)
+    model_params = {
+        "model_id": model_id,
+        "api_key": "-",
+        "api_base": f"http://127.0.0.1:{port}",
+        "custom_role_conversions": custom_role_conversions,
+        # "max_completion_tokens": 100,
+        # "temperature": 0.0,
+    }
+    model = LiteLLMModel(**model_params)
 
     # model_params = {
     #     "model_id": model_id,
@@ -154,10 +164,10 @@ def create_agent(model_id="o1"):
     # }
     # model = HfApiModel(**model_params)
     
-    model_params = {
-        "model_id": model_id,
-    }
-    model = LocalHFModel(**model_params)
+    # model_params = {
+    #     "model_id": model_id,
+    # }
+    # model = LocalHFModel(**model_params)
 
     text_limit = 100000
     browser = SimpleTextBrowser(**BROWSER_CONFIG)
@@ -206,7 +216,7 @@ def create_agent(model_id="o1"):
 def main():
     args = parse_args()
 
-    agent = create_agent(model_id=args.model_id)
+    agent = create_agent(model_id=args.model_id, port=args.port)
 
     answer = agent.run(args.question)
 

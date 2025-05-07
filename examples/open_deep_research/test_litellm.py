@@ -8,9 +8,10 @@ messages = [
 ]
     
 response = litellm.completion(
-            model="deepseek-ai/DeepSeek-R1-Distill-Qwen-14B", # pass the vllm model name
+            model="openai/meta-llama/Llama-3.1-8B-Instruct", # pass the vllm model name
+            api_key="-",
             messages=messages,
-            api_base="http://0.0.0.0:8000/v1/chat/completions",
+            api_base="http://127.0.0.1:8080",
             temperature=0.2,
             max_tokens=80)
 
