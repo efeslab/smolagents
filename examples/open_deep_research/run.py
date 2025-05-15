@@ -107,8 +107,8 @@ class LocalHFModel:
         generation_kwargs = {
             "max_new_tokens": self.max_tokens,
             # "do_sample": True,
-            # "temperature": 0.0,
-            # "seed": 42,
+            "temperature": 0.0,
+            "seed": 42,
         }
 
         if stop_sequences:
@@ -153,8 +153,8 @@ def create_agent(model_id="o1", port=8080):
         "api_key": "-",
         "api_base": f"http://127.0.0.1:{port}",
         "custom_role_conversions": custom_role_conversions,
-        # "max_completion_tokens": 100,
-        # "temperature": 0.0,
+        "max_completion_tokens": 100,
+        "temperature": 0.0,
     }
     model = LiteLLMModel(**model_params)
 
@@ -203,7 +203,7 @@ def create_agent(model_id="o1", port=8080):
     manager_agent = CodeAgent(
         model=model,
         tools=[visualizer, TextInspectorTool(model, text_limit)],
-        max_steps=12,
+        max_steps=10,
         verbosity_level=2,
         additional_authorized_imports=AUTHORIZED_IMPORTS,
         planning_interval=4,
